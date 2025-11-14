@@ -315,6 +315,7 @@ class HomePageState extends ConsumerState<HomePage> {
     });
   }
 
+  //activating camera streaming
   Future<void> _stopCameraStreaming() async {
     setState(() => _cameraStreaming = false);
     _cameraStreamTimer?.cancel();
@@ -524,7 +525,7 @@ class HomePageState extends ConsumerState<HomePage> {
               // Floating controls (zoom and orientation)
               Positioned(
                 right: 24,
-                bottom: 120,
+                bottom: 24,
                 child: Column(
                   children: [
                     const SizedBox(height: 12),
@@ -619,6 +620,54 @@ class HomePageState extends ConsumerState<HomePage> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              // Positioned(
+              //   bottom: 0,
+              //   left: 0,
+              //   child: Opacity(
+              //     opacity: 0.15,
+              //     child: SizedBox(
+              //       width: MediaQuery.of(context).size.width * 0.5,
+              //       height: 90,
+              //       child: InkWell(
+              //         onTap: _startCameraStreaming,
+              //         child: Center(
+              //           child: FloatingActionButton(
+              //             heroTag: "triggerCameraBtn",
+              //             backgroundColor: Colors.blue,
+              //             onPressed: _startCameraStreaming, // REQUIRED
+              //             child: Icon(Icons.camera_alt),
+              //           ),
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Opacity(
+                  opacity: 0.15,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width,
+                    height: 240,
+                    child: InkWell(
+                      onTap: _isListening
+                          ? _stopListening
+                          : _manualStartListening,
+                      // child: Center(
+                      //   child: FloatingActionButton(
+                      //     heroTag: "triggerMicBtn",
+                      //     backgroundColor: Colors.red,
+                      //     onPressed: _isListening
+                      //         ? _stopListening
+                      //         : _manualStartListening, // REQUIRED
+                      //     child: Icon(Icons.mic),
+                      //   ),
+                      // ),
+                    ),
+                  ),
                 ),
               ),
               // Bluetooth connect/disconnect button
@@ -870,6 +919,7 @@ class HomePageState extends ConsumerState<HomePage> {
         lowerCmd.contains("my location")) {
       try {
         Position position = await Geolocator.getCurrentPosition(
+          
           locationSettings: LocationSettings(
             accuracy: LocationAccuracy.high,
             distanceFilter: 0,
@@ -926,6 +976,15 @@ class HomePageState extends ConsumerState<HomePage> {
         }
       }
       return;
+    }
+
+    if (lowerCmd.contains('detect')) {
+      if (_cameraStreaming) {
+        await _stopCameraStreaming();
+      } else {
+        await _startCameraStreaming();
+      }
+      print('Ignoring command: $command ');
     }
 
     try {
