@@ -57,7 +57,6 @@ class PlacesService {
           '',
     };
   }
-
   /// Search for places near a given lat/lng.
   /// Returns a list of maps: [{'name': ..., 'address': ...}, ...]
   Future<List<Map<String, dynamic>>> searchNearby(

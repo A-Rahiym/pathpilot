@@ -6,7 +6,6 @@ import '../core/constants.dart';
 class CommandResult {
   final String? intent;
   final String? destination;
-
   CommandResult({this.intent, this.destination});
 }
 
@@ -58,7 +57,6 @@ class GeminiService {
     }
     return 'Unknown address';
   }
-
   // Helper to clean Gemini's reply from code block markers
   String cleanJson(String text) {
     final regex = RegExp(r'```(?:json)?([\s\S]*?)```');
