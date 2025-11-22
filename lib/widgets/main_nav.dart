@@ -20,7 +20,6 @@ class _MainNavState extends State<MainNav> {
       _selectedIndex = index;
     });
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

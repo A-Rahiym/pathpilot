@@ -33,7 +33,6 @@ class GeminiService {
     return [];
   }
 
-  // Format a placemark or Google result to a readable address
   String formatPlacemark(dynamic placemark) {
     // If using geocoding package's Placemark
     if (placemark is Placemark) {
