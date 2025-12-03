@@ -298,7 +298,7 @@ class DirectionsController extends StateNotifier<DirectionsState> {
       if (response.statusCode != 200) {
         return [];
       }
-
+      
       final Map<String, dynamic> data = json.decode(response.body);
       if ((data['routes'] as List).isEmpty) return [];
 

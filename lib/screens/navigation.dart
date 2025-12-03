@@ -8,20 +8,19 @@ import '../features/camera/camera_controller.dart';
 import '../features/camera/camera_panel.dart';
 import '../features/map/map_controller.dart';
 import '../features/map/map_widget.dart';
-import '../features/search/search_controller.dart';
-import '../features/search/search_panel.dart';
-import '../features/speech/listening_indicator.dart';
 import '../features/speech/speech_controller.dart';
-import '../features/speech/speech_state.dart';
+import '../widgets/navigation_controls.dart';
+import '../widgets/navigation_message_box.dart';
+import '../widgets/status_bar_widget.dart';
 
-class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
+class NavigationPage extends ConsumerStatefulWidget {
+  const NavigationPage({super.key});
 
   @override
-  ConsumerState<HomePage> createState() => _HomePageState();
+  ConsumerState<NavigationPage> createState() => _NavigationPageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _NavigationPageState extends ConsumerState<NavigationPage> {
   @override
   void initState() {
     super.initState();
@@ -31,28 +30,28 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     // Listen for speech state changes to show detected command dialog
-    ref.listen<SpeechState>(speechControllerProvider, (previous, next) {
-      if (next.detectedCommand != null &&
-          next.detectedCommand != previous?.detectedCommand) {
-        _showDetectedCommandDialog(next.detectedCommand!);
-        ref.read(speechControllerProvider.notifier).clearDetectedCommandFlag();
-      }
+    // ref.listen<SpeechState>(speechControllerProvider, (previous, next) {
+    //   if (next.detectedCommand != null &&
+    //       next.detectedCommand != previous?.detectedCommand) {
+    //     _showDetectedCommandDialog(next.detectedCommand!);
+    //     ref.read(speechControllerProvider.notifier).clearDetectedCommandFlag();
+    //   }
 
-      if (next.errorMessage != null &&
-          next.errorMessage != previous?.errorMessage) {
-        _showErrorSnackBar(next.errorMessage!);
-        ref.read(speechControllerProvider.notifier).clearErrorMessage();
-      }
-    });
+    //   if (next.errorMessage != null &&
+    //       next.errorMessage != previous?.errorMessage) {
+    //     _showErrorSnackBar(next.errorMessage!);
+    //     ref.read(speechControllerProvider.notifier).clearErrorMessage();
+    //   }
+    // });
 
-    // Listen for search state changes to show errors
-    ref.listen(searchControllerProvider, (previous, next) {
-      if (next.errorMessage != null &&
-          next.errorMessage != previous?.errorMessage) {
-        _showErrorSnackBar(next.errorMessage!);
-        ref.read(searchControllerProvider.notifier).clearErrorMessage();
-      }
-    });
+    // // Listen for search state changes to show errors
+    // ref.listen(searchControllerProvider, (previous, next) {
+    //   if (next.errorMessage != null &&
+    //       next.errorMessage != previous?.errorMessage) {
+    //     _showErrorSnackBar(next.errorMessage!);
+    //     ref.read(searchControllerProvider.notifier).clearErrorMessage();
+    //   }
+    // });
   }
 
   /// Initializes all feature controllers (permissions, services, etc.)
@@ -67,7 +66,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final speechState = ref.watch(speechControllerProvider);
     final speechController = ref.read(speechControllerProvider.notifier);
 
     return Scaffold(
@@ -85,12 +83,19 @@ class _HomePageState extends ConsumerState<HomePage> {
             children: [
               // Map widget (full screen background)
               const MapWidget(),
-              // Search panel (top overlay)
+              // 1. Status Bar (top)
               const Positioned(
                 top: 24,
                 left: 24,
                 right: 24,
-                child: SearchPanel(),
+                child: StatusBarWidget(),
+              ),
+              // 2. Navigation message box
+              const Positioned(
+                top: 90,
+                left: 24,
+                right: 24,
+                child: NavigationMessageBox(),
               ),
               // Map control button (recenter)
               Positioned(
@@ -109,68 +114,20 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ],
                 ),
               ),
-              // Listening indicator (bottom center overlay)
+              // 3. Navigation control buttons (bottom center)
               const Positioned(
                 bottom: 40,
                 left: 0,
                 right: 0,
-                child: ListeningIndicator(),
+                child: NavigationControls(),
               ),
               // Camera panel (bottom left overlay)
-              const Positioned(bottom: 24, left: 24, child: CameraPanel()),
-              // Invisible tap area for voice activation (bottom right)
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Opacity(
-                  opacity: 0.15,
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width,
-                    height: 240,
-                    child: InkWell(
-                      onTap: speechState.isListening
-                          ? () {
-                              speechController.stopListening();
-                            }
-                          : () {
-                              speechController.startListening();
-                            },
-                    ),
-                  ),
-                ),
-              ),
+              const Positioned(bottom: 100, left: 24, child: CameraPanel()),
             ],
           ),
         ),
       ),
     );
-  }
-
-  /// Displays a transient dialog echoing recognized voice commands.
-  void _showDetectedCommandDialog(String command) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        content: Text(
-          'Detected command:\n$command',
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
-  }
-
-  /// Shows errors surfaced by feature controllers as snack bars.
-  void _showErrorSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

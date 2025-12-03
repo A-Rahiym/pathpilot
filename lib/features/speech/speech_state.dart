@@ -6,6 +6,7 @@ class SpeechState {
     required this.voiceGuidance,
     required this.detectedCommand,
     required this.errorMessage,
+    required this.ttsMessage,
   });
 
   factory SpeechState.initial() {
@@ -14,6 +15,7 @@ class SpeechState {
       voiceGuidance: true,
       detectedCommand: null,
       errorMessage: null,
+      ttsMessage: null,
     );
   }
 
@@ -21,6 +23,7 @@ class SpeechState {
   final bool voiceGuidance;
   final String? detectedCommand;
   final String? errorMessage;
+  final String? ttsMessage;
 
   /// Returns a new state with selective overrides.
   SpeechState copyWith({
@@ -30,6 +33,8 @@ class SpeechState {
     bool clearDetectedCommand = false,
     String? errorMessage,
     bool clearErrorMessage = false,
+    String? ttsMessage,
+    bool clearTtsMessage = false,
   }) {
     return SpeechState(
       isListening: isListening ?? this.isListening,
@@ -40,6 +45,9 @@ class SpeechState {
       errorMessage: clearErrorMessage
           ? null
           : errorMessage ?? this.errorMessage,
+      ttsMessage: clearTtsMessage
+          ? null
+          : ttsMessage ?? this.ttsMessage,
     );
   }
 }

@@ -33,11 +33,9 @@ class SpeechController extends StateNotifier<SpeechState> {
   Future<void> _initialize() async {
     if (_initialized) return;
     _initialized = true;
-
     await _requestMicPermission();
     await _speechService.init();
   }
-
   /// Requests microphone access and guides the user if denied.
   Future<void> _requestMicPermission() async {
     final status = await Permission.microphone.request();
@@ -87,7 +85,6 @@ class SpeechController extends StateNotifier<SpeechState> {
       await _speak('Stopped listening.');
     }
   }
-
   /// Handles voice commands and delegates to appropriate controllers.
   Future<void> _handleVoiceCommand(String command) async {
     final lowerCmd = command.toLowerCase();
@@ -139,6 +136,11 @@ class SpeechController extends StateNotifier<SpeechState> {
     state = state.copyWith(clearErrorMessage: true);
   }
 
+/// Clears the TTS message from the UI.
+  void clearTtsMessage() {
+    state = state.copyWith(clearTtsMessage: true);
+  }
+
 /// Toggles voice guidance on/off.
   void toggleVoiceGuidance() {
     state = state.copyWith(voiceGuidance: !state.voiceGuidance);
@@ -146,7 +148,10 @@ class SpeechController extends StateNotifier<SpeechState> {
 
 /// Safely performs TTS if voice guidance is enabled and text non-empty.
   Future<void> _speak(String message) async {
-    if (!state.voiceGuidance || message.isEmpty) return;
+    if (!state.voiceGuidance || message.isEmpty) return;    
+    // Update state to display the TTS message in UI
+    state = state.copyWith(ttsMessage: message);
+    print('TTS about to be printed on the screen:$message');
     await _ttsService.stop();
     await _ttsService.speak(message);
   }
