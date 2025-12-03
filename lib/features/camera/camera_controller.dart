@@ -62,7 +62,8 @@ class CameraController extends StateNotifier<CameraState> {
       final speechState = _ref.read(speechControllerProvider);
       if (speechState.voiceGuidance) {
         await _ttsService.stop();
-        await _ttsService.speak(response);
+        // It will be updated here I believe
+        await _speak(response);
       }
       _cameraGeminiService.ttsBusy = false;
     };
@@ -84,7 +85,7 @@ class CameraController extends StateNotifier<CameraState> {
 
     final speechState = _ref.read(speechControllerProvider);
     if (speechState.voiceGuidance) {
-      await _ttsService.speak('Camera obstacle detection started');
+      await _speak('Camera obstacle detection started');
     }
 
     _cameraStreamTimer = Timer.periodic(const Duration(seconds: 1), (
@@ -109,7 +110,7 @@ class CameraController extends StateNotifier<CameraState> {
 
     final speechState = _ref.read(speechControllerProvider);
     if (speechState.voiceGuidance) {
-      await _ttsService.speak('Obstacle detection stopped');
+      await _speak('Obstacle detection stopped');
     }
   }
 
@@ -133,4 +134,17 @@ class CameraController extends StateNotifier<CameraState> {
     await _cameraGeminiService.dispose();
     _bluetoothService.dispose();
   }
+    Future<void> _speak(String message) async {
+    final speechState = _ref.read(speechControllerProvider);
+    if (!speechState.voiceGuidance || message.isEmpty) return;
+    
+    // Update SpeechController to display the TTS message
+    final speechController = _ref.read(speechControllerProvider.notifier);
+    speechController.setTtsMessage(message);
+    
+    await _ttsService.stop();
+    await _ttsService.speak(message);
+  }
 }
+
+

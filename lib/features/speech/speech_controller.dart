@@ -141,6 +141,11 @@ class SpeechController extends StateNotifier<SpeechState> {
     state = state.copyWith(clearTtsMessage: true);
   }
 
+/// Public method to set the TTS message (called from other controllers).
+  void setTtsMessage(String message) {
+    state = state.copyWith(ttsMessage: message);
+  }
+
 /// Toggles voice guidance on/off.
   void toggleVoiceGuidance() {
     state = state.copyWith(voiceGuidance: !state.voiceGuidance);

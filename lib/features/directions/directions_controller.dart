@@ -359,9 +359,15 @@ class DirectionsController extends StateNotifier<DirectionsState> {
   }
 
   /// Safely performs TTS if voice guidance is enabled and text non-empty.
+  /// Also updates SpeechController to display the message in the UI.
   Future<void> _speak(String message) async {
     final speechState = _ref.read(speechControllerProvider);
     if (!speechState.voiceGuidance || message.isEmpty) return;
+    
+    // Update SpeechController to display the TTS message
+    final speechController = _ref.read(speechControllerProvider.notifier);
+    speechController.setTtsMessage(message);
+    
     await _ttsService.stop();
     await _ttsService.speak(message);
   }
