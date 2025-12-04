@@ -29,36 +29,13 @@ return Row(
         },
         child: Container(
           height: 100, // Adjust height as needed
-          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.2),
+          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              Icon(Icons.play_arrow, color: Colors.white, size: 32),
+              Icon(Icons.navigation, color: Colors.white, size: 64),
               SizedBox(height: 20),
               Text("Start", style: TextStyle(color: Colors.white)),
-            ],
-          ),
-        ),
-      ),
-    ),
-
-    // PAUSE AREA
-    Expanded(
-      child: InkWell(
-        onTap: () async {
-          if (directionsState.isNavigating) {
-            await directionsController.stopNavigation();
-          }
-        },
-        child: Container(
-          height: 100,
-          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.pause, color: Colors.white, size: 32),
-              SizedBox(height: 8),
-              Text("Pause", style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -78,13 +55,36 @@ return Row(
         },
         child: Container(
           height: 100,
-          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.2),
+          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              Icon(Icons.mic, color: Colors.white, size: 32),
-              SizedBox(height: 8),
+              Icon(Icons.mic, color: Colors.white, size: 64),
+              SizedBox(height: 20),
               Text("Listen", style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    ),
+
+    // PAUSE AREA
+    Expanded(
+      child: InkWell(
+        onTap: () async {
+          if (directionsState.isNavigating) {
+            await directionsController.stopNavigation();
+          }
+        },
+        child: Container(
+          height: 100,
+          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.pause, color: Colors.white, size: 64),
+              SizedBox(height: 8),
+              Text("Pause", style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -131,7 +131,7 @@ class _ControlButton extends StatelessWidget {
           label,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
+            fontSize: 20,
             fontWeight: FontWeight.w500,
           ),
         ),

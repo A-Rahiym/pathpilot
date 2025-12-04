@@ -80,7 +80,14 @@ class CameraController extends StateNotifier<CameraState> {
 
   /// Begins periodic capture/analysis loop for obstacle detection.
   Future<void> _startCameraStreaming() async {
-    if (!_cameraGeminiService.isInitialized || state.cameraStreaming) return;
+    if (state.cameraStreaming) return;
+
+    // If camera was disposed/closed, re-initialize
+    if (!_cameraGeminiService.isInitialized ||
+        _cameraGeminiService.controller == null ||
+        !_cameraGeminiService.controller!.value.isInitialized) {
+      await _cameraGeminiService.restartCamera();
+    }
     state = state.copyWith(cameraStreaming: true);
 
     final speechState = _ref.read(speechControllerProvider);
@@ -134,17 +141,16 @@ class CameraController extends StateNotifier<CameraState> {
     await _cameraGeminiService.dispose();
     _bluetoothService.dispose();
   }
-    Future<void> _speak(String message) async {
+
+  Future<void> _speak(String message) async {
     final speechState = _ref.read(speechControllerProvider);
     if (!speechState.voiceGuidance || message.isEmpty) return;
-    
+
     // Update SpeechController to display the TTS message
     final speechController = _ref.read(speechControllerProvider.notifier);
     speechController.setTtsMessage(message);
-    
+
     await _ttsService.stop();
     await _ttsService.speak(message);
   }
 }
-
-

@@ -10,6 +10,7 @@ class CameraGeminiService {
   String? _latestImageBase64;
   bool _turnComplete = false;
   int _turnCount = 0;
+  bool _isCapturing = false;
 
   // Callback for AI responses
   Function(String)? onAiResponse;
@@ -85,7 +86,13 @@ class CameraGeminiService {
   }
 
   Future<void> captureAndAnalyze() async {
-    if (!isInitialized || _cameraController!.value.isTakingPicture) return;
+    if (_isCapturing) return;
+    _isCapturing = true;
+
+    if (!isInitialized || _cameraController!.value.isTakingPicture) {
+      _isCapturing = false;
+      return;
+    }
 
     try {
       final image = await _cameraController!.takePicture();
@@ -93,8 +100,8 @@ class CameraGeminiService {
       final base64Image = base64Encode(bytes);
 
       _latestImageBase64 = base64Image;
-      _turnCount += 1;
 
+      _turnCount += 1;
       if (_turnCount >= 2) {
         _turnCount = 0;
         _turnComplete = true;
@@ -104,7 +111,9 @@ class CameraGeminiService {
         "Analyze the current scene for obstacles and hazards. Respond in one short sentence.",
       );
     } catch (e) {
-      print('❌ Error capturing image: $e');
+      print("❌ Error capturing image: $e");
+    } finally {
+      _isCapturing = false;
     }
   }
 
@@ -135,6 +144,31 @@ class CameraGeminiService {
 
     if (_turnComplete) {
       _turnComplete = false;
+    }
+  }
+
+  Future<void> restartCamera() async {
+    try {
+      print("♻️ Restarting camera…");
+
+      // Dispose old instances safely
+      await session?.close();
+      await _cameraController?.dispose();
+
+      // Recreate controller
+      final cameras = await availableCameras();
+      _cameraController = CameraController(
+        cameras.first,
+        ResolutionPreset.low,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      await _connectToGemini();
+
+      print("✅ Camera restarted successfully");
+    } catch (e) {
+      print("❌ Error restarting camera: $e");
     }
   }
 
