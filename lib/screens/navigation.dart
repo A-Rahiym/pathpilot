@@ -9,6 +9,7 @@ import '../features/camera/camera_panel.dart';
 import '../features/map/map_controller.dart';
 import '../features/map/map_widget.dart';
 import '../features/speech/speech_controller.dart';
+import '../providers/bluetooth_provider.dart';
 import '../widgets/navigation_controls.dart';
 import '../widgets/navigation_message_box.dart';
 import '../widgets/status_bar_widget.dart';
@@ -56,6 +57,9 @@ class _NavigationPageState extends ConsumerState<NavigationPage> {
 
   /// Initializes all feature controllers (permissions, services, etc.)
   Future<void> _initializeFeatures() async {
+    // Trigger Bluetooth auto-connection when Navigation Page opens
+    await ref.read(bluetoothControllerProvider.notifier).autoConnectToDevice();
+
     // Speech controller handles its own initialization
     // Camera controller handles its own initialization
     // Map controller is ready immediately
@@ -136,6 +140,7 @@ class _NavigationPageState extends ConsumerState<NavigationPage> {
     ref.read(mapControllerProvider.notifier).disposeController();
     ref.read(cameraControllerProvider.notifier).disposeController();
     ref.read(speechControllerProvider.notifier).disposeController();
+    ref.read(bluetoothControllerProvider.notifier).dispose();
     super.dispose();
   }
 }

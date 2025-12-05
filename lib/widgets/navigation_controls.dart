@@ -29,7 +29,7 @@ return Row(
         },
         child: Container(
           height: 100, // Adjust height as needed
-          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
+          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -55,7 +55,7 @@ return Row(
         },
         child: Container(
           height: 100,
-          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
+          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -78,7 +78,7 @@ return Row(
         },
         child: Container(
           height: 100,
-          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
+          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [

@@ -20,7 +20,7 @@ class NavigationMessageBox extends ConsumerWidget {
       height: 160,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.85),
+        color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.20),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(

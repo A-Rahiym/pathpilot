@@ -20,8 +20,8 @@ class CameraPanel extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 120,
-          height: 160,
+          width: 270,
+          height: 350,
           decoration: BoxDecoration(
             color: Colors.black,
             borderRadius: BorderRadius.circular(16),

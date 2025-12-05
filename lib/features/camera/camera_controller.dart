@@ -1,11 +1,12 @@
 /// Controller for the Camera feature.
 /// Manages camera streaming, obstacle detection, and AI analysis.
-/// Communicates with SpeechController for TTS feedback and BluetoothService for haptics.
+/// Communicates with SpeechController for TTS feedback and BluetoothController for haptics/connection.
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/app_providers.dart';
+import '../../providers/bluetooth_provider.dart';
 import '../../services/BluetoothService.dart';
 import '../../services/camera_gemini_service.dart';
 import '../../services/tts_service.dart';
@@ -49,7 +50,8 @@ class CameraController extends StateNotifier<CameraState> {
 
       // Bluetooth haptic feedback based on AI response
       final lowerResp = response.toLowerCase();
-      if (_bluetoothService.isConnected) {
+      final bluetoothState = _ref.read(bluetoothControllerProvider);
+      if (bluetoothState.isConnected) {
         if (lowerResp.contains('left') || lowerResp.contains('move left')) {
           _bluetoothService.sendMessage('L');
         }
@@ -82,7 +84,10 @@ class CameraController extends StateNotifier<CameraState> {
   Future<void> _startCameraStreaming() async {
     if (state.cameraStreaming) return;
 
-    // If camera was disposed/closed, re-initialize
+    // Resume image streaming on the active WebSocket connection
+    _cameraGeminiService.resumeStreaming();
+
+    // If camera was disposed/closed, re-initialize it
     if (!_cameraGeminiService.isInitialized ||
         _cameraGeminiService.controller == null ||
         !_cameraGeminiService.controller!.value.isInitialized) {
@@ -108,16 +113,18 @@ class CameraController extends StateNotifier<CameraState> {
     });
   }
 
-  /// Stops the capture timer and notifies the user.
+  /// Stops the capture timer and pauses image streaming (keeps WebSocket alive).
   Future<void> _stopCameraStreaming() async {
     if (!state.cameraStreaming) return;
     state = state.copyWith(cameraStreaming: false);
     _cameraStreamTimer?.cancel();
-    await _cameraGeminiService.session?.close();
+
+    // Pause image streaming WITHOUT closing the WebSocket connection
+    _cameraGeminiService.pauseStreaming();
 
     final speechState = _ref.read(speechControllerProvider);
     if (speechState.voiceGuidance) {
-      await _speak('Obstacle detection stopped');
+      await _speak('Obstacle detection paused');
     }
   }
 

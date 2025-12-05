@@ -1,5 +1,5 @@
 /// Immutable state for the Map feature.
-/// Holds markers, polylines, and camera position for rendering the Google Map.
+/// Holds markers, polylines, camera position, and current address from reverse geocoding.
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapState {
@@ -7,6 +7,7 @@ class MapState {
     required this.markers,
     required this.polylines,
     required this.mapCenter,
+    this.currentAddress,
   });
 
   factory MapState.initial() {
@@ -14,23 +15,27 @@ class MapState {
       markers: {},
       polylines: {},
       mapCenter: LatLng(11.15, 7.65), // ABU Zaria default
+      currentAddress: null,
     );
   }
 
   final Set<Marker> markers;
   final Set<Polyline> polylines;
   final LatLng mapCenter;
+  final String? currentAddress; // Address from reverse geocoding
 
   /// Returns a new state with selective overrides.
   MapState copyWith({
     Set<Marker>? markers,
     Set<Polyline>? polylines,
     LatLng? mapCenter,
+    String? currentAddress,
   }) {
     return MapState(
       markers: markers ?? this.markers,
       polylines: polylines ?? this.polylines,
       mapCenter: mapCenter ?? this.mapCenter,
+      currentAddress: currentAddress ?? this.currentAddress,
     );
   }
 }

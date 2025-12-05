@@ -11,6 +11,7 @@ class CameraGeminiService {
   bool _turnComplete = false;
   int _turnCount = 0;
   bool _isCapturing = false;
+  bool _isPaused = false; // Pause state for image streaming
 
   // Callback for AI responses
   Function(String)? onAiResponse;
@@ -18,6 +19,8 @@ class CameraGeminiService {
   bool get isInitialized => _cameraController?.value.isInitialized ?? false;
   CameraController? get controller => _cameraController;
   bool _ttsBusy = false;
+  bool get isPaused => _isPaused;
+  bool get isSessionActive => session != null;
 
   bool get ttsBusy => _ttsBusy;
   set ttsBusy(bool value) => _ttsBusy = value;
@@ -85,7 +88,26 @@ class CameraGeminiService {
     }
   }
 
+  /// Pauses image streaming without disconnecting the WebSocket.
+  /// Call this when obstacle detection is toggled OFF.
+  void pauseStreaming() {
+    _isPaused = true;
+    print('⏸️ Image streaming paused (WebSocket remains connected)');
+  }
+
+  /// Resumes image streaming on the active WebSocket connection.
+  /// Call this when obstacle detection is toggled ON.
+  void resumeStreaming() {
+    _isPaused = false;
+    print('▶️ Image streaming resumed');
+  }
+
   Future<void> captureAndAnalyze() async {
+    // Skip if streaming is paused
+    if (_isPaused) {
+      return;
+    }
+
     if (_isCapturing) return;
     _isCapturing = true;
 
@@ -147,15 +169,16 @@ class CameraGeminiService {
     }
   }
 
+  /// Restarts the camera WITHOUT disconnecting the WebSocket.
+  /// Reconnects the camera to the existing session.
   Future<void> restartCamera() async {
     try {
       print("♻️ Restarting camera…");
 
-      // Dispose old instances safely
-      await session?.close();
+      // Dispose only the camera controller, not the session
       await _cameraController?.dispose();
 
-      // Recreate controller
+      // Recreate camera controller
       final cameras = await availableCameras();
       _cameraController = CameraController(
         cameras.first,
@@ -164,16 +187,18 @@ class CameraGeminiService {
       );
 
       await _cameraController!.initialize();
-      await _connectToGemini();
 
-      print("✅ Camera restarted successfully");
+      print(
+        "✅ Camera restarted successfully (WebSocket connection maintained)",
+      );
     } catch (e) {
       print("❌ Error restarting camera: $e");
     }
   }
 
   Future<void> dispose() async {
-    await session?.close();
     await _cameraController?.dispose();
+    // Keep WebSocket connection alive even during disposal
+    // This allows the service to be reinitialized without reconnecting
   }
 }
