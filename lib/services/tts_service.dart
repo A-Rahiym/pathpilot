@@ -15,6 +15,30 @@ class TtsService {
     await _tts.setPitch(1.0);
     await _tts.setSpeechRate(0.7);
 
+    // Set Nigeria English voice if available
+    try {
+      List<dynamic> voices = await _tts.getVoices;
+      // Look for Nigeria English voice
+      final nigeriaNgVoice = voices.firstWhere(
+        (voice) =>
+            voice['name'].toString().toLowerCase().contains('nigeria') ||
+            (voice['lang'].toString() == 'en-NG' &&
+                voice['name'].toString().isNotEmpty),
+        orElse: () => null,
+      );
+      if (nigeriaNgVoice != null) {
+        await _tts.setVoice({
+          "name": nigeriaNgVoice['name'],
+          "locale": 'en-NG',
+        });
+        print('✅ Nigeria accent voice set: ${nigeriaNgVoice['name']}');
+      } else {
+        print('⚠️ Nigeria accent voice not found, using default en-NG');
+      }
+    } catch (e) {
+      print('⚠️ Could not set Nigeria voice: $e');
+    }
+
     _tts.setCompletionHandler(() {
       _isSpeaking = false;
       _completion?.complete();

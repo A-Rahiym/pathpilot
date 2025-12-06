@@ -1,4 +1,4 @@
-/// Status bar widget displaying Bluetooth status and current location (with reverse geocoding).
+/// Status bar widget displaying Bluetooth status, direction indicators, and current location (with reverse geocoding).
 /// Reads from Bluetooth controller and map controller providers.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,14 +60,60 @@ class StatusBarWidget extends ConsumerWidget {
             ),
           ),
           const Spacer(),
+
+          // LEFT DIRECTION INDICATOR
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: bluetoothState.lastDirection == LastDirection.left
+                  ? Colors.cyan
+                  : const Color.fromARGB(255, 93, 56, 241),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.arrow_left,
+              color: bluetoothState.lastDirection == LastDirection.left
+                  ? Colors.black
+                  : const Color.fromARGB(255, 255, 255, 255),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // RIGHT DIRECTION INDICATOR
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: bluetoothState.lastDirection == LastDirection.right
+                 ? Colors.cyan
+                : const Color.fromARGB(255, 93, 56, 241),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.arrow_right,
+              color: bluetoothState.lastDirection == LastDirection.right
+                  ? Colors.black
+                  : const Color.fromARGB(255, 255, 255, 255),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+
           // Location icon
-          const Icon(Icons.location_on, color: Color.fromARGB(255, 37, 0, 124), size: 40),
+          const Icon(
+            Icons.location_on,
+            color: Color.fromARGB(255, 68, 1, 226),
+            size: 40,
+          ),
           const SizedBox(width: 8),
           // Current location text (address from reverse geocoding)
           Flexible(
             child: Text(
               currentLocationLabel,
-              style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255), fontSize: 28),
+              style: const TextStyle(
+                color: Color.fromARGB(255, 255, 255, 255),
+                fontSize: 28,
+              ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),

@@ -105,7 +105,7 @@ class BluetoothController extends StateNotifier<BluetoothConnectionState> {
         if (attempt >= maxAttempts) {
           state = state.copyWith(
             status: BluetoothStatus.disconnected,
-            statusMessage: 'Connection Failed',
+            statusMessage: 'Hardware Disconnected',
             isConnected: false,
           );
           return;
@@ -142,6 +142,15 @@ class BluetoothController extends StateNotifier<BluetoothConnectionState> {
       final formatted = "$message\r\n";
       _connection!.output.add(Uint8List.fromList(formatted.codeUnits));
       print('📤 Sent: $formatted');
+
+      // Update state with last direction sent
+      if (message.contains('L')) {
+        state = state.copyWith(lastDirection: LastDirection.left);
+        print('👈 Left direction tracked');
+      } else if (message.contains('R')) {
+        state = state.copyWith(lastDirection: LastDirection.right);
+        print('👉 Right direction tracked');
+      }
     } else {
       print('⚠️ Cannot send: Not connected or message is empty.');
     }

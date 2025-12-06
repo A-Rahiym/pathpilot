@@ -19,6 +19,7 @@ class NavigationMessageBox extends ConsumerWidget {
       alignment: Alignment.center,
       height: 160,
       padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.20),
         borderRadius: BorderRadius.circular(12),
@@ -35,4 +36,3 @@ class NavigationMessageBox extends ConsumerWidget {
     );
   }
 }
-
