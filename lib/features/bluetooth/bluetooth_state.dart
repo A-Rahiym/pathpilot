@@ -1,7 +1,7 @@
 /// Immutable state for the Bluetooth connection feature.
 /// Tracks connection status, device information, and status messages.
 
-enum BluetoothStatus { disconnected, connecting, connected, deviceNotFound }
+enum BluetoothStatus { disconnected, connecting, connected, deviceNotConnected }
 
 class BluetoothConnectionState {
   const BluetoothConnectionState({

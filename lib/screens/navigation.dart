@@ -3,6 +3,8 @@
 /// This page is purely presentational and coordinates feature widgets.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../features/camera/camera_controller.dart';
 import '../features/camera/camera_panel.dart';
@@ -59,12 +61,32 @@ class _NavigationPageState extends ConsumerState<NavigationPage> {
   Future<void> _initializeFeatures() async {
     // Trigger Bluetooth auto-connection when Navigation Page opens
     await ref.read(bluetoothControllerProvider.notifier).autoConnectToDevice();
-
-    // Speech controller handles its own initialization
-    // Camera controller handles its own initialization
-    // Map controller is ready immediately
-    // Directions controller is ready immediately
-    // Search controller is ready immediately
+    // Try to get a fresh device location and update the map controller so
+    // reverse geocoding runs immediately when the user opens Navigation.
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+        );
+        final latlng = LatLng(pos.latitude, pos.longitude);
+        await ref.read(mapControllerProvider.notifier).updateMapCenter(latlng);
+      } else {
+        // If permission not granted, still call update with existing center
+        final current = ref.read(mapControllerProvider).mapCenter;
+        await ref.read(mapControllerProvider.notifier).updateMapCenter(current);
+      }
+    } catch (e) {
+      // Fallback: call update with existing center so address is attempted
+      final current = ref.read(mapControllerProvider).mapCenter;
+      await ref.read(mapControllerProvider.notifier).updateMapCenter(current);
+      print('❌ Could not obtain location on Navigation open: $e');
+    }
+    // Other controllers are initialized elsewhere as needed
     return;
   }
 

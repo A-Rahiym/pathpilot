@@ -57,8 +57,8 @@ class BluetoothController extends StateNotifier<BluetoothConnectionState> {
         if (targetDevice == null) {
           if (attempt >= maxAttempts) {
             state = state.copyWith(
-              status: BluetoothStatus.deviceNotFound,
-              statusMessage: 'Device Not Found',
+              status: BluetoothStatus.deviceNotConnected,
+              statusMessage: 'Device Not Connected',
               isConnected: false,
             );
             print('❌ Device not found after $attempt attempts');
