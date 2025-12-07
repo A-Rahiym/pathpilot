@@ -105,7 +105,7 @@ class BluetoothController extends StateNotifier<BluetoothConnectionState> {
         if (attempt >= maxAttempts) {
           state = state.copyWith(
             status: BluetoothStatus.disconnected,
-            statusMessage: 'Hardware Disconnected',
+            statusMessage: 'Hardware Connected',
             isConnected: false,
           );
           return;

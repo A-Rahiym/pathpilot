@@ -36,39 +36,121 @@ class CameraController extends StateNotifier<CameraState> {
   late final BluetoothService _bluetoothService;
 
   Timer? _cameraStreamTimer;
+  Timer? _queueProcessingTimer;
   bool _initialized = false;
 
-  /// Initializes camera service and routes AI responses to feedback channels.
+  /// Initializes camera service and routes AI responses to response queue.
   Future<void> _initCamera() async {
     if (_initialized) return;
     _initialized = true;
 
     await _cameraGeminiService.initCamera();
     _cameraGeminiService.onAiResponse = (response) async {
-      state = state.copyWith(cameraAiResponse: response);
-      _cameraGeminiService.ttsBusy = true;
-
-      // Bluetooth haptic feedback based on AI response
-      final lowerResp = response.toLowerCase();
-      final bluetoothState = _ref.read(bluetoothControllerProvider);
-      if (bluetoothState.isConnected) {
-        if (lowerResp.contains('left') || lowerResp.contains('move left')) {
-          _bluetoothService.sendMessage('L');
-        }
-        if (lowerResp.contains('right') || lowerResp.contains('move right')) {
-          _bluetoothService.sendMessage('R');
-        }
-      }
-
-      // TTS feedback (check voice guidance from speech state)
-      final speechState = _ref.read(speechControllerProvider);
-      if (speechState.voiceGuidance) {
-        await _ttsService.stop();
-        // It will be updated here I believe
-        await _speak(response);
-      }
-      _cameraGeminiService.ttsBusy = false;
+      // Add response to queue instead of processing immediately
+      _queueResponse(response);
     };
+  }
+
+  /// Adds a response to the queue for batch processing.
+  void _queueResponse(String response) {
+    final updatedQueue = List<String>.from(state.responseQueue)..add(response);
+    state = state.copyWith(responseQueue: updatedQueue);
+    print('📋 Response queued. Queue size: ${updatedQueue.length}');
+
+    // Start queue processing timer if not already running
+    if (_queueProcessingTimer == null) {
+      _startQueueProcessing();
+    }
+  }
+
+  /// Starts the queue processing timer.
+  void _startQueueProcessing() {
+    _queueProcessingTimer = Timer.periodic(
+      state.queueProcessingInterval,
+      (_) => _processNextQueuedResponse(),
+    );
+    print(
+      '⏱Queue processing started (interval: ${state.queueProcessingInterval.inSeconds}s)',
+    );
+  }
+
+  /// Processes the next response from the queue.
+  /// Combines first and second responses if available.
+  /// Waits for TTS to complete before processing the next item.
+  Future<void> _processNextQueuedResponse() async {
+    // Skip if already processing or if queue is empty
+    if (state.isProcessing || state.responseQueue.isEmpty) {
+      if (state.responseQueue.isEmpty && _queueProcessingTimer != null) {
+        _queueProcessingTimer?.cancel();
+        _queueProcessingTimer = null;
+        print('✅ Queue processing stopped (empty queue)');
+      }
+      return;
+    }
+
+    // Mark as processing
+    state = state.copyWith(isProcessing: true);
+
+    // Combine first and second responses if both exist
+    String response;
+    List<String> remainingQueue;
+
+    if (state.responseQueue.length >= 2) {
+      final first = state.responseQueue[0];
+      final second = state.responseQueue[1];
+      response = '$first $second'; // Combine with space
+      remainingQueue = state.responseQueue.sublist(2);
+      print(
+        '🔗 Combined 2 responses: "${response.substring(0, response.length > 50 ? 50 : response.length)}..."',
+      );
+    } else {
+      response = state.responseQueue.first;
+      remainingQueue = state.responseQueue.sublist(1);
+    }
+
+    state = state.copyWith(
+      responseQueue: remainingQueue,
+      cameraAiResponse: response,
+    );
+
+    print(
+      '🔄 Processing queued response: ${response.substring(0, response.length > 50 ? 50 : response.length)}...',
+    );
+
+    _cameraGeminiService.ttsBusy = true;
+
+    // Bluetooth haptic feedback based on AI response
+    final lowerResp = response.toLowerCase();
+    final bluetoothState = _ref.read(bluetoothControllerProvider);
+    if (bluetoothState.isConnected) {
+      if (lowerResp.contains('left') || lowerResp.contains('move left')) {
+        _bluetoothService.sendMessage('L');
+      }
+      if (lowerResp.contains('right') || lowerResp.contains('move right')) {
+        _bluetoothService.sendMessage('R');
+      }
+    }
+
+    // TTS feedback with wait for completion
+    final speechState = _ref.read(speechControllerProvider);
+    if (speechState.voiceGuidance) {
+      await _ttsService.stop();
+      // Wait for TTS to speak and complete
+      await _speak(response);
+      print('⏸️ Pausing before next response (waiting for TTS completion)');
+    }
+
+    _cameraGeminiService.ttsBusy = false;
+
+    // Mark processing complete
+    state = state.copyWith(isProcessing: false);
+  }
+
+  /// Updates the queue processing interval (in seconds).
+  void setQueueProcessingInterval(int seconds) {
+    final newInterval = Duration(seconds: seconds);
+    state = state.copyWith(queueProcessingInterval: newInterval);
+    print('⚙️ Queue processing interval updated to ${seconds}s');
   }
 
   /// Toggles camera-driven obstacle detection.
@@ -145,6 +227,7 @@ class CameraController extends StateNotifier<CameraState> {
   /// Disposes camera resources.
   Future<void> disposeController() async {
     _cameraStreamTimer?.cancel();
+    _queueProcessingTimer?.cancel();
     await _cameraGeminiService.dispose();
     _bluetoothService.dispose();
   }

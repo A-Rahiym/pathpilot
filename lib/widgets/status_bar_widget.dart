@@ -30,7 +30,7 @@ class StatusBarWidget extends ConsumerWidget {
         ? Colors.orange
         : bluetoothConnected
         ? Colors.green
-        : Colors.red;
+        : Colors.green;
 
     // Determine Bluetooth status text
     final bluetoothText = bluetoothState.statusMessage;

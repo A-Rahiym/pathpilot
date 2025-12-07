@@ -7,14 +7,11 @@ import '../features/speech/speech_controller.dart';
 
 class NavigationMessageBox extends ConsumerWidget {
   const NavigationMessageBox({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final speechState = ref.watch(speechControllerProvider);
-    
     // Display TTS output (processed response) instead of raw command
     final displayText = speechState.ttsMessage ?? 'Waiting for input...';
-
     return Container(
       alignment: Alignment.center,
       height: 160,

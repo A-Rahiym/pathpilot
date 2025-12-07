@@ -9,13 +9,11 @@ import 'camera_controller.dart';
 
 class CameraPanel extends ConsumerWidget {
   const CameraPanel({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(cameraControllerProvider);
     final controller = ref.read(cameraControllerProvider.notifier);
     final cameraService = ref.watch(cameraGeminiServiceProvider);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
