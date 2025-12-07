@@ -93,7 +93,6 @@ If the command does not require a destination, set "destination" to null.
 User command: $userCommand
 ''';
   }
-
   /// Parses a voice command using Gemini LLM API and extracts intent/destination.
   Future<CommandResult> parseCommandLLM(String command, String apiKey) async {
     final url = Uri.parse(
