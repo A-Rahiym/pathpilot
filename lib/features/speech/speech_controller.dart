@@ -115,6 +115,7 @@ class SpeechController extends StateNotifier<SpeechState> {
                     'where_am_i',
                     'start_detection',
                     'navigate_to',
+                    'take_me_to',
                     'stop_navigation',
                   ],
                 ),
@@ -136,12 +137,14 @@ class SpeechController extends StateNotifier<SpeechState> {
         [
           Content.text(
             '''Analyze the user speech, detect the language (English, Hausa, Yoruba, Igbo, or Nigerian Pidgin), then extract their intent after translating.
-User speech: "Ibo ni mo wà ní báyìí?"
+User speech:"$transcribedText"
 
 Intents:
 - "where_am_i": User wants their current location.
 - "start_detection": User wants to start obstacle detection.
+- "stop_detection": User wants to start obstacle detection.
 - "navigate_to": User wants directions to a place.
+- "take_me_to": User wants directions to a place.
 - "stop_navigation": User wants to stop navigation.
 
 If intent is "navigate_to", extract the destination.
@@ -227,10 +230,15 @@ After calling execute_user_intent(intent, destination) to return the result''',
 
       case 'start_detection':
         print('👁️ Speech: Executing start_detection');
-        await cameraController.toggleCameraStreaming();
+        await cameraController.toggleCameraStreaming(command: 'on');
         break;
 
-      case 'navigate_to':
+      case 'stop_detection':
+        print('🛑 Speech: Executing stop_detection');
+        await cameraController.toggleCameraStreaming(command: 'off');
+        break;
+
+      case 'navigate_to' || 'take_me_to':
         if (destination != null && destination.isNotEmpty) {
           print('🧭 Speech: Executing navigate_to - destination: $destination');
           await directionsController.handleConversationalNavigation(
@@ -248,7 +256,6 @@ After calling execute_user_intent(intent, destination) to return the result''',
         print('⛔ Speech: Executing stop_navigation');
         await directionsController.stopNavigation();
         break;
-
       default:
         print('❓ Speech: Unknown intent - $intent, falling back');
         // This shouldn't happen with proper function schema, but as safety

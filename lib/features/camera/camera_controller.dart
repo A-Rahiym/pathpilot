@@ -153,12 +153,25 @@ class CameraController extends StateNotifier<CameraState> {
     print('⚙️ Queue processing interval updated to ${seconds}s');
   }
 
-  /// Toggles camera-driven obstacle detection.
-  Future<void> toggleCameraStreaming() async {
-    if (state.cameraStreaming) {
-      await _stopCameraStreaming();
+  /// Controls camera-driven obstacle detection.
+  /// Parameter: 'on' to start detection, 'off' to stop detection.
+  /// If no parameter or toggle, toggles current state.
+  Future<void> toggleCameraStreaming({String? command}) async {
+    if (command?.toLowerCase() == 'on') {
+      if (!state.cameraStreaming) {
+        await _startCameraStreaming();
+      }
+    } else if (command?.toLowerCase() == 'off') {
+      if (state.cameraStreaming) {
+        await _stopCameraStreaming();
+      }
     } else {
-      await _startCameraStreaming();
+      // Toggle if no command specified
+      if (state.cameraStreaming) {
+        await _stopCameraStreaming();
+      } else {
+        await _startCameraStreaming();
+      }
     }
   }
 

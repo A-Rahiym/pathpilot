@@ -38,7 +38,10 @@ class CameraPanel extends ConsumerWidget {
         FloatingActionButton(
           mini: true,
           onPressed: () {
-            controller.toggleCameraStreaming();
+            final isStreaming = controller.state.cameraStreaming;
+            controller.toggleCameraStreaming(
+              command: isStreaming ? 'off' : 'on',
+            );
           },
           tooltip: state.cameraStreaming ? 'Stop Detection' : 'Start Detection',
           backgroundColor: state.cameraStreaming ? Colors.red : Colors.blue,
