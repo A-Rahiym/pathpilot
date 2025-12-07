@@ -2,7 +2,7 @@
 /// Handles speech-to-text with Gemini function calling for intent extraction.
 /// Local STT provides transcription, Gemini interprets intent via function calling.
 /// Communicates with DirectionsController and CameraController for actions.
-import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -99,26 +99,58 @@ class SpeechController extends StateNotifier<SpeechState> {
         '🤖 Speech: Sending text to Gemini for intent extraction: "$transcribedText"',
       );
 
-      // Send to Gemini with function calling using proper schema
-      final response = await _geminiModel.generateContent([
-        Content.text('''Analyze this user speech and extract their intent.
+      // Define function schema for Gemini
+      final tool = Tool(
+        functionDeclarations: <FunctionDeclaration>[
+          FunctionDeclaration(
+            'execute_user_intent',
+            'Extracts and executes the user intent from speech',
+            Schema(
+              SchemaType.object,
+              properties: {
+                'intent': Schema(
+                  SchemaType.string,
+                  description: 'The detected user intent',
+                  enumValues: [
+                    'where_am_i',
+                    'start_detection',
+                    'navigate_to',
+                    'stop_navigation',
+                  ],
+                ),
+                'destination': Schema(
+                  SchemaType.string,
+                  nullable: true,
+                  description:
+                      'Destination for navigate_to (ignored for other intents)',
+                ),
+              },
+              requiredProperties: ['intent'],
+            ),
+          ),
+        ],
+      );
 
+      // Send to Gemini with function calling
+      final response = await _geminiModel.generateContent(
+        [
+          Content.text(
+            '''Analyze the user speech, detect the language (English, Hausa, Yoruba, Igbo, or Nigerian Pidgin), then extract their intent after translating.
 User speech: "$transcribedText"
 
-Determine which intent the user has:
-- "where_am_i": User wants to know their current location
-- "start_detection": User wants to start obstacle detection  
-- "navigate_to": User wants to navigate to a location
-- "stop_navigation": User wants to stop navigation
+Intents:
+- "where_am_i": User wants their current location.
+- "start_detection": User wants to start obstacle detection.
+- "navigate_to": User wants directions to a place.
+- "stop_navigation": User wants to stop navigation.
 
-For "navigate_to", extract the destination location they mentioned.
+If intent is "navigate_to", extract the destination.
 
-Return a JSON response with:
-{
-  "intent": "one of: where_am_i, start_detection, navigate_to, stop_navigation",
-  "destination": "location name if navigate_to, otherwise null"
-}'''),
-      ]);
+After calling execute_user_intent(intent, destination) to return the result''',
+          ),
+        ],
+        tools: [tool],
+      );
 
       // Handle the response
       await _handleGeminiFunctionCall(response, transcribedText);
@@ -129,51 +161,43 @@ Return a JSON response with:
     }
   }
 
-  /// Handles response from Gemini.
-  /// Parses JSON response to extract intent and executes appropriate action.
+  /// Handles function call response from Gemini.
+  /// Extracts function call and executes the appropriate intent.
   Future<void> _handleGeminiFunctionCall(
     GenerateContentResponse response,
     String originalText,
   ) async {
     try {
-      final responseText = response.text;
-      if (responseText == null || responseText.isEmpty) {
-        print('⚠️ Speech: Empty Gemini response, using fallback');
+      // Check if response contains function calls
+      if (response.functionCalls.isEmpty) {
+        print(
+          '⚠️ Speech: No function calls in Gemini response, using fallback',
+        );
         await _handleVoiceCommand(originalText);
         return;
       }
 
-      print('✅ Speech: Gemini response: $responseText');
+      // Get the first function call
+      final functionCall = response.functionCalls.first;
+      print(
+        '✅ Speech: Function call - ${functionCall.name}, args: ${functionCall.args}',
+      );
 
-      // Parse JSON from response
-      // Gemini might wrap JSON in markdown code blocks, so clean it up
-      String jsonText = responseText.trim();
-      if (jsonText.startsWith('```json')) {
-        jsonText = jsonText
-            .replaceFirst('```json', '')
-            .replaceAll('```', '')
-            .trim();
-      } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText
-            .replaceFirst('```', '')
-            .replaceAll('```', '')
-            .trim();
-      }
-
-      final parsed = jsonDecode(jsonText) as Map<String, dynamic>;
-      final intent = parsed['intent']?.toString().toLowerCase() ?? '';
-      final destination = parsed['destination']?.toString();
+      // Extract intent and destination from function arguments
+      final intent =
+          functionCall.args['intent']?.toString().toLowerCase() ?? '';
+      final destination = functionCall.args['destination']?.toString();
 
       print('✅ Speech: Parsed intent=$intent, destination=$destination');
 
       // Execute the intent
-      await _executeIntent('gemini_intent', {
+      await _executeIntent(functionCall.name, {
         'intent': intent,
         'destination': destination,
       });
     } catch (e) {
       print(
-        '⚠️ Speech: Error parsing Gemini response: $e, falling back to keyword matching',
+        '⚠️ Speech: Error processing function call: $e, falling back to keyword matching',
       );
       await _handleVoiceCommand(originalText);
     }
