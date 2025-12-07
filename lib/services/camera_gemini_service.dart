@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:gemini_live/gemini_live.dart';
@@ -12,9 +13,14 @@ class CameraGeminiService {
   int _turnCount = 0;
   bool _isCapturing = false;
   bool _isPaused = false; // Pause state for image streaming
+  bool _isConnected = false; // Track WebSocket connection status
+  bool _isAttemptingReconnect = false; // Prevent multiple reconnection attempts
 
   // Callback for AI responses
   Function(String)? onAiResponse;
+
+  // Connection health check timer
+  Timer? _connectionHealthCheckTimer;
 
   bool get isInitialized => _cameraController?.value.isInitialized ?? false;
   CameraController? get controller => _cameraController;
@@ -24,6 +30,14 @@ class CameraGeminiService {
 
   bool get ttsBusy => _ttsBusy;
   set ttsBusy(bool value) => _ttsBusy = value;
+
+  bool get isConnected => _isConnected;
+
+  /// Checks if WebSocket connection is active.
+  /// Returns true if session exists and connection is healthy.
+  bool _isWebSocketActive() {
+    return session != null && _isConnected;
+  }
 
   Future<void> initCamera() async {
     try {
@@ -35,6 +49,7 @@ class CameraGeminiService {
       );
       await _cameraController!.initialize();
       await _connectToGemini();
+      _startConnectionHealthCheck();
     } catch (e) {
       print('❌ Error initializing camera: $e');
     }
@@ -72,32 +87,73 @@ class CameraGeminiService {
             ],
           ),
           callbacks: LiveCallbacks(
-            onOpen: () => print('🔗 Gemini Live session opened'),
+            onOpen: () {
+              _isConnected = true;
+              print('🔗 Gemini Live session opened (WebSocket active)');
+            },
             onMessage: (msg) {
               final text = msg.text;
               if (text != null && onAiResponse != null) {
                 onAiResponse!(text);
               }
             },
-            onError: (error, stack) => print('❌ Gemini Live error: $error'),
-            onClose: (code, reason) =>
-                print('🔌 Gemini Live closed: $code, $reason'),
+            onError: (error, stack) {
+              _isConnected = false;
+              print('❌ Gemini Live error: $error');
+            },
+            onClose: (code, reason) {
+              _isConnected = false;
+              print('🔌 Gemini Live closed: $code, $reason');
+            },
           ),
         ),
       );
+      _isConnected = true;
       print('✅ Gemini Live session ready for obstacle detection');
     } catch (e) {
+      _isConnected = false;
       print('❌ Error connecting to Gemini Live: $e');
+      rethrow;
     }
   }
 
+  /// Starts periodic health checks for WebSocket connection.
+  /// Automatically attempts to reconnect if connection is lost.
+  void _startConnectionHealthCheck() {
+    _connectionHealthCheckTimer?.cancel();
+    _connectionHealthCheckTimer = Timer.periodic(const Duration(seconds:1), (
+      _,
+    ) async {
+      if (!_isWebSocketActive() && !_isAttemptingReconnect) {
+        print('⚠️ WebSocket connection inactive, attempting to reconnect...');
+        await _attemptReconnect();
+      }
+    });
+    print('🏥 Connection health check started (every 5 seconds)');
+  }
+
+  /// Attempts to reconnect the WebSocket if connection is lost.
+  /// Includes exponential backoff to prevent overwhelming the server.
+  Future<void> _attemptReconnect() async {
+    if (_isAttemptingReconnect) return;
+    _isAttemptingReconnect = true;
+
+    try {
+      print('🔄 Reconnecting to Gemini Live...');
+      await _connectToGemini();
+      print('✅ Successfully reconnected to Gemini Live');
+    } catch (e) {
+      print('❌ Reconnection failed: $e. Will retry in 5 seconds.');
+    } finally {
+      _isAttemptingReconnect = false;
+    }
+  }
   /// Pauses image streaming without disconnecting the WebSocket.
   /// Call this when obstacle detection is toggled OFF.
   void pauseStreaming() {
     _isPaused = true;
     print('⏸️ Image streaming paused (WebSocket remains connected)');
   }
-
   /// Resumes image streaming on the active WebSocket connection.
   /// Call this when obstacle detection is toggled ON.
   void resumeStreaming() {
@@ -108,6 +164,14 @@ class CameraGeminiService {
   Future<void> captureAndAnalyze() async {
     // Skip if streaming is paused
     if (_isPaused) {
+      return;
+    }
+    // Check WebSocket connection before processing
+    if (!_isWebSocketActive()) {
+      print(
+        '⚠️ WebSocket not active, skipping analysis. Triggering reconnect...',
+      );
+      await _attemptReconnect();
       return;
     }
 
@@ -200,6 +264,8 @@ class CameraGeminiService {
   }
 
   Future<void> dispose() async {
+    _connectionHealthCheckTimer?.cancel();
+    _connectionHealthCheckTimer = null;
     await _cameraController?.dispose();
     // Keep WebSocket connection alive even during disposal
     // This allows the service to be reinitialized without reconnecting

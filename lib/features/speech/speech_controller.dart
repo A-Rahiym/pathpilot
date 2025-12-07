@@ -136,7 +136,7 @@ class SpeechController extends StateNotifier<SpeechState> {
         [
           Content.text(
             '''Analyze the user speech, detect the language (English, Hausa, Yoruba, Igbo, or Nigerian Pidgin), then extract their intent after translating.
-User speech: "$transcribedText"
+User speech: "Ibo ni mo wà ní báyìí?"
 
 Intents:
 - "where_am_i": User wants their current location.
@@ -233,7 +233,9 @@ After calling execute_user_intent(intent, destination) to return the result''',
       case 'navigate_to':
         if (destination != null && destination.isNotEmpty) {
           print('🧭 Speech: Executing navigate_to - destination: $destination');
-          await directionsController.navigateToLocation(destination);
+          await directionsController.handleConversationalNavigation(
+            destination,
+          );
         } else {
           print('⚠️ Speech: navigate_to without destination, asking user');
           if (state.voiceGuidance) {
