@@ -49,6 +49,7 @@ dependencies:
   sensors_plus: ^7.0.0
   flutter_riverpod: ^2.3.3
   firebase_ai: ^3.6.0
+  google_generative_ai: ^0.4.7
   # flutter_bluetooth_serial: ^0.4.0
 dependency_overrides:
   flutter_bluetooth_serial:

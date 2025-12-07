@@ -5,7 +5,6 @@ class PlacesService {
   final String apiKey;
 
   PlacesService(this.apiKey);
-
   Future<List<Map<String, String>>> autocomplete(
     String input, {
     double? lat,
