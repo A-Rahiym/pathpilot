@@ -10,6 +10,8 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../providers/app_providers.dart';
 import '../../services/speech_to_text_service.dart';
 import '../../services/tts_service.dart';
+import '../../services/guidance_call_service.dart';
+import '../../services/nearby_places_service.dart';
 import '../../core/constants.dart';
 import '../camera/camera_controller.dart';
 import '../directions/directions_controller.dart';
@@ -24,6 +26,8 @@ class SpeechController extends StateNotifier<SpeechState> {
   SpeechController(this._ref)
     : _speechService = _ref.read(speechServiceProvider),
       _ttsService = _ref.read(ttsServiceProvider),
+      _guidanceCallService = _ref.read(guidanceCallServiceProvider),
+      _nearbyPlacesService = _ref.read(nearbyPlacesServiceProvider),
       _geminiModel = GenerativeModel(
         model: 'gemini-2.0-flash',
         apiKey: AppConstants.googleStudiogeminikey,
@@ -35,6 +39,8 @@ class SpeechController extends StateNotifier<SpeechState> {
   final Ref _ref;
   final SpeechToTextService _speechService;
   final TtsService _ttsService;
+  final GuidanceCallService _guidanceCallService;
+  final NearbyPlacesService _nearbyPlacesService;
   final GenerativeModel _geminiModel;
   bool _initialized = false;
 
@@ -67,7 +73,7 @@ class SpeechController extends StateNotifier<SpeechState> {
   Future<void> startListening() async {
     state = state.copyWith(isListening: true);
     if (state.voiceGuidance) {
-      await _speak('Listening...');
+      await _speak('Listening for command...');
     }
     await _speechService.listen(
       onResult: (recognizedText) async {
@@ -103,30 +109,64 @@ class SpeechController extends StateNotifier<SpeechState> {
       final tool = Tool(
         functionDeclarations: <FunctionDeclaration>[
           FunctionDeclaration(
-            'execute_user_intent',
-            'Extracts and executes the user intent from speech',
+            'where_am_i',
+            'Get the user’s current GPS location as text.',
+            Schema(SchemaType.object, properties: {}),
+          ),
+
+          FunctionDeclaration(
+            'start_detection',
+            'Start real-time obstacle detection using the camera.',
+            Schema(SchemaType.object, properties: {}),
+          ),
+
+          FunctionDeclaration(
+            'stop_navigation',
+            'Stop all navigation or guidance activity.',
+            Schema(SchemaType.object, properties: {}),
+          ),
+
+          FunctionDeclaration(
+            'call_guidance',
+            'Trigger a phone call to the configured emergency or guidance number.',
             Schema(
               SchemaType.object,
               properties: {
-                'intent': Schema(
+                'phone': Schema(
                   SchemaType.string,
-                  description: 'The detected user intent',
-                  enumValues: [
-                    'where_am_i',
-                    'start_detection',
-                    'navigate_to',
-                    'take_me_to',
-                    'stop_navigation',
-                  ],
+                  description: 'Phone number to call',
                 ),
+              },
+            ),
+          ),
+
+          FunctionDeclaration(
+            'take_me_to',
+            'Start navigation to a specific destination.',
+            Schema(
+              SchemaType.object,
+              properties: {
                 'destination': Schema(
+                  SchemaType.string,
+                  description: 'The destination the user wants to navigate to.',
+                ),
+              },
+            ),
+          ),
+
+          FunctionDeclaration(
+            'get_nearby_places',
+            'Retrieve nearby places using the already-existing PlacesService.',
+            Schema(
+              SchemaType.object,
+              properties: {
+                'category': Schema(
                   SchemaType.string,
                   nullable: true,
                   description:
-                      'Destination for navigate_to (ignored for other intents)',
+                      'Optional category filter (e.g., hospital, restaurant, bank).',
                 ),
               },
-              requiredProperties: ['intent'],
             ),
           ),
         ],
@@ -138,23 +178,21 @@ class SpeechController extends StateNotifier<SpeechState> {
           Content.text(
             '''Analyze the user speech, detect the language (English, Hausa, Yoruba, Igbo, or Nigerian Pidgin), then extract their intent after translating.
 User speech:"$transcribedText"
-
 Intents:
 - "where_am_i": User wants their current location.
 - "start_detection": User wants to start obstacle detection.
-- "stop_detection": User wants to start obstacle detection.
+- "stop_detection": User wants to stop obstacle detection.
 - "navigate_to": User wants directions to a place.
-- "take_me_to": User wants directions to a place.
+- "take_me_to": User wants directions/navigation to a place.
 - "stop_navigation": User wants to stop navigation.
-
-If intent is "navigate_to", extract the destination.
-
-After calling execute_user_intent(intent, destination) to return the result''',
+- "call_guidance": User wants to call their guidance contact.
+- "get_nearby_places": User wants to know about nearby places around them.
+If intent is "navigate_to" or "take_me_to", extract the destination.
+Call execute_user_intent(intent, destination) to return the result.''',
           ),
         ],
         tools: [tool],
       );
-
       // Handle the response
       await _handleGeminiFunctionCall(response, transcribedText);
     } catch (e) {
@@ -179,7 +217,6 @@ After calling execute_user_intent(intent, destination) to return the result''',
         await _handleVoiceCommand(originalText);
         return;
       }
-
       // Get the first function call
       final functionCall = response.functionCalls.first;
       print(
@@ -256,6 +293,17 @@ After calling execute_user_intent(intent, destination) to return the result''',
         print('⛔ Speech: Executing stop_navigation');
         await directionsController.stopNavigation();
         break;
+
+      case 'call_guidance':
+        print('☎️ Speech: Executing call_guidance');
+        await _callGuidance();
+        break;
+
+      case 'get_nearby_places':
+        print('🏢 Speech: Executing get_nearby_places');
+        await _getNearbyPlaces();
+        break;
+
       default:
         print('❓ Speech: Unknown intent - $intent, falling back');
         // This shouldn't happen with proper function schema, but as safety
@@ -304,13 +352,21 @@ After calling execute_user_intent(intent, destination) to return the result''',
       return;
     }
 
-    if (lowerCmd.contains('take me to')) {
+    if (lowerCmd.contains('take me')) {
       // Handle navigation commands via conversational navigation
       await directionsController.handleConversationalNavigation(command);
     }
 
     if (lowerCmd.contains('stop navigation')) {
       await directionsController.stopNavigation();
+      return;
+    }
+    if (lowerCmd.contains('near me')) {
+      await _getNearbyPlaces();
+      return;
+    }
+    if (lowerCmd.contains('call guide')) {
+      await _callGuidance();
       return;
     }
   }
@@ -340,6 +396,12 @@ After calling execute_user_intent(intent, destination) to return the result''',
     state = state.copyWith(voiceGuidance: !state.voiceGuidance);
   }
 
+  /// Public speak method for use by other services.
+  /// Safely performs TTS if voice guidance is enabled and text non-empty.
+  Future<void> speak(String message) async {
+    await _speak(message);
+  }
+
   /// Safely performs TTS if voice guidance is enabled and text non-empty.
   Future<void> _speak(String message) async {
     if (!state.voiceGuidance || message.isEmpty) return;
@@ -348,6 +410,80 @@ After calling execute_user_intent(intent, destination) to return the result''',
     print('TTS about to be printed on the screen:$message');
     await _ttsService.stop();
     await _ttsService.speak(message);
+  }
+
+  /// Initiates a phone call to the predefined Guidance Contact.
+  /// Provides spoken instructions via TtsService.
+  Future<void> _callGuidance() async {
+    try {
+      print('📞 Speech: Executing call_guidance');
+
+      // Call the Guidance Contact (which will provide spoken instructions)
+      final bool success = await _guidanceCallService.callGuidanceContact();
+
+      if (success) {
+        print('✅ Speech: Guidance Contact call launched successfully');
+      } else {
+        print('❌ Speech: Failed to launch phone dialer');
+      }
+    } catch (e) {
+      print('❌ Speech: Error calling Guidance: $e');
+      if (state.voiceGuidance) {
+        await _speak('Unable to call Guidance Contact at this time.');
+      }
+    }
+  }
+
+  /// Retrieves nearby places around the user's current location.
+  /// Uses NearbyPlacesService to query Google Places API with user's location.
+  /// Returns formatted list: \"Place Name (Type) - distance away\".
+  Future<void> _getNearbyPlaces() async {
+    try {
+      print('🏢 Speech: Fetching nearby places...');
+      if (state.voiceGuidance) {
+        await _speak('Searching for nearby places...');
+      }
+
+      // Fetch nearby places
+      final List<NearbyPlace> nearbyPlaces = await _nearbyPlacesService
+          .getNearbyPlaces(
+            radius: 500, // 500 meters
+            type: '', // All types
+          );
+
+      if (nearbyPlaces.isEmpty) {
+        print('⚠️ Speech: No nearby places found');
+        if (state.voiceGuidance) {
+          await _speak('No nearby places found in your area.');
+        }
+        return;
+      }
+
+      // Format response: limit to top 5 places
+      final List<NearbyPlace> topPlaces = nearbyPlaces.take(5).toList();
+      final String placesDescription = topPlaces
+          .asMap()
+          .entries
+          .map(
+            (entry) =>
+                '${entry.key + 1}. ${entry.value.name} - ${entry.value.distanceMeters.toStringAsFixed(0)} meters away',
+          )
+          .join('. ');
+
+      print('✅ Speech: Found ${topPlaces.length} nearby places');
+      print('Speech: Top places: $placesDescription');
+
+      if (state.voiceGuidance) {
+        await _speak(
+          'Found ${topPlaces.length} nearby places. $placesDescription',
+        );
+      }
+    } catch (e) {
+      print('❌ Speech: Error fetching nearby places: $e');
+      if (state.voiceGuidance) {
+        await _speak('Unable to retrieve nearby places at this time.');
+      }
+    }
   }
 
   /// Disposes speech resources.

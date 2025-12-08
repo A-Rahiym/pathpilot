@@ -192,7 +192,7 @@ class CameraController extends StateNotifier<CameraState> {
 
     final speechState = _ref.read(speechControllerProvider);
     if (speechState.voiceGuidance) {
-      await _speak('Camera obstacle detection started');
+      await _speak('Path Navigation started');
     }
 
     _cameraStreamTimer = Timer.periodic(const Duration(seconds: 1), (
@@ -219,7 +219,7 @@ class CameraController extends StateNotifier<CameraState> {
 
     final speechState = _ref.read(speechControllerProvider);
     if (speechState.voiceGuidance) {
-      await _speak('Obstacle detection paused');
+      await _speak('Path Navigation paused');
     }
   }
 

@@ -4,6 +4,8 @@ import '../services/speech_to_text_service.dart';
 import '../services/gemini_service.dart';
 import '../services/camera_gemini_service.dart';
 import '../services/places_service.dart';
+import '../services/guidance_call_service.dart';
+import '../services/nearby_places_service.dart';
 import '../core/constants.dart';
 
 // Providers for core services (singleton-like providers)
@@ -32,3 +34,12 @@ final cameraGeminiServiceProvider = Provider<CameraGeminiService>((ref) {
 final placesServiceProvider = Provider(
   (ref) => PlacesService(AppConstants.googleMapsApiKey),
 );
+
+final guidanceCallServiceProvider = Provider<GuidanceCallService>((ref) {
+  return GuidanceCallService(ref);
+});
+
+final nearbyPlacesServiceProvider = Provider<NearbyPlacesService>((ref) {
+  final placesService = ref.read(placesServiceProvider);
+  return NearbyPlacesService(placesService);
+});
