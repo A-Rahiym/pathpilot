@@ -18,7 +18,7 @@ class NavigationMessageBox extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.20),
+        color: const Color.fromARGB(255, 0, 0, 0).withValues(),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
