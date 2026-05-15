@@ -27,69 +27,351 @@ confidently through unfamiliar environments.
 
 ## 🧱 Architecture Overview
 
-| Layer / Module        | Responsibility                                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------------- |
-| `lib/features/home`   | Feature module for the home screen (state, controller, UI bindings).                                   |
-| `HomeController`      | StateNotifier that orchestrates services (Places, Gemini, camera, TTS, Bluetooth, permissions, etc.).   |
-| `HomeState`           | Immutable data snapshot consumed by the UI (markers, polylines, search results, voice flags, errors).   |
-| `lib/services/*`      | Thin service wrappers around platform/HTTP SDKs (speech, TTS, Gemini, Google Places, Bluetooth, etc.).  |
-| `lib/widgets`         | Reusable presentation widgets (`CustomMap`, navigation shell, etc.).                                   |
-| Riverpod Providers    | Wire services and controller instances into the widget tree with clear lifetimes.                       |
+| Layer / Module            | Responsibility                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `lib/features/*/`         | Feature modules (speech, map, directions, camera, search, etc.) with controller, state, and UI components       |
+| `*Controller`             | StateNotifier that manages feature logic and communicates with services and other controllers                     |
+| `*State`                  | Immutable data snapshot consumed by UI (markers, polylines, listening flags, messages, errors)                   |
+| `lib/services/*`          | Thin service wrappers around external APIs (Gemini, Google Maps/Places, speech-to-text, TTS, Bluetooth, camera) |
+| `lib/widgets`             | Reusable presentation widgets (CustomMap, navigation controls, status bar, message box, camera panel)             |
+| `lib/screens/`            | Page-level UI that assembles feature widgets and manages navigation (HomePage, NavigationPage, Settings, etc.)   |
+| Riverpod Providers        | Singleton factories for services and feature notifiers; manage lifecycle and dependencies                        |
+| `MainNav` (StatefulWidget)| Router widget that manages bottom navigation and page switching between Home, Map, Settings, Onboarding           |
 
 ### Directory Highlights
 
 ```
 lib/
-├─ core/constants.dart         # API keys, shared constants
+├─ core/constants.dart         # API keys (Gemini, Google Maps/Places, Bluetooth device), shared constants
 ├─ features/
-│  └─ home/
-│      └─ application/
-│          ├─ home_state.dart  # Immutable UI state
-│          └─ home_controller.dart  # Business logic + orchestration
-├─ providers/app_providers.dart # Riverpod service providers
-├─ services/                   # Speech, TTS, Gemini, Places, Camera, Bluetooth
-└─ screens/
-   ├─ homePage.dart           # UI layer (driven entirely by HomeState)
-   └─ settingsPage.dart
+│  ├─ speech/
+│  │  ├─ speech_controller.dart      # Handles STT, Gemini intent parsing, and command execution
+│  │  ├─ speech_state.dart           # Immutable state (listening flag, detected command, voice guidance flag)
+│  │  └─ listening_indicator.dart    # UI for listening status
+│  ├─ map/
+│  │  ├─ map_controller.dart         # Manages markers, polylines, camera animations, reverse geocoding
+│  │  ├─ map_state.dart              # Immutable state (markers, polylines, map center, current address)
+│  │  └─ map_widget.dart             # GoogleMap widget
+│  ├─ directions/
+│  │  ├─ directions_controller.dart  # Route calculation, turn-by-turn guidance, navigation orchestration
+│  │  └─ directions_state.dart       # Immutable state (destination, route, navigation flags)
+│  ├─ camera/
+│  │  ├─ camera_controller.dart      # Frame capture and obstacle detection via Gemini
+│  │  ├─ camera_state.dart           # Immutable state (camera active flag, detected obstacles)
+│  │  └─ camera_panel.dart           # Camera feed UI
+│  ├─ search/
+│  │  ├─ search_controller.dart      # Google Places autocomplete and geocoding
+│  │  ├─ search_state.dart           # Immutable state (search results, loading flag)
+│  │  └─ search_panel.dart           # Search UI with autocomplete
+│  └─ bluetooth/
+│     ├─ bluetooth_controller.dart   # Bluetooth device connection and message sending
+│     └─ bluetooth_state.dart        # Immutable state (connected device, connection status)
+├─ providers/
+│  ├─ app_providers.dart             # Riverpod singleton providers for all services
+│  └─ bluetooth_provider.dart        # Bluetooth service provider
+├─ services/
+│  ├─ gemini_service.dart            # Gemini LLM API wrapper (intent parsing + multimodal analysis)
+│  ├─ camera_gemini_service.dart     # Camera controller + Gemini obstacle detection
+│  ├─ places_service.dart            # Google Places autocomplete and geocoding
+│  ├─ nearby_places_service.dart     # Nearby places discovery
+│  ├─ speech_to_text_service.dart    # Speech-to-text via speech_to_text package
+│  ├─ tts_service.dart               # Text-to-speech via flutter_tts
+│  ├─ guidance_call_service.dart     # Guidance callback management
+│  ├─ BluetoothService.dart          # Bluetooth communication with haptic hardware
+│  └─ gemini_function_call.dart      # Gemini function call schema definitions
+├─ screens/
+│  ├─ home.dart                      # HomePage landing screen with action buttons
+│  ├─ navigation.dart                # NavigationPage with map, camera, and controls
+│  ├─ settings.dart                  # SettingsPage
+│  └─ onboarding.dart                # OnboardingPage
+├─ widgets/
+│  ├─ main_nav.dart                  # Bottom nav router switching between pages
+│  ├─ custom_map.dart                # Map utility widget
+│  ├─ navigation_controls.dart       # Map controls (recenter, zoom, etc.)
+│  ├─ navigation_message_box.dart    # Displays navigation messages and guidance
+│  └─ status_bar_widget.dart         # Status display (connection, location, etc.)
+└─ main.dart                         # App entry point; initializes ProviderScope and MainNav
 ```
 
 ---
 
-## 🔄 Flowchart
+## 🔄 Data Flow & Orchestration
 
 ```mermaid
 flowchart TD
     User[(User)]
-    UI[Home UI\n(search bar, gestures,\nmap, camera panel)]
-    Controller[HomeController\n(StateNotifier)]
-    State[HomeState\n(markers, polylines,\nflags, messages)]
+    MainNav[MainNav\nBottom Navigation<br/>Home|Map|Settings]
+    Home[HomePage\nAction Buttons]
+    NavPage[NavigationPage\nStack: Map, Camera,<br/>Controls, Messages]
+    SpeechUI[Microphone Button]
+    MapUI[GoogleMap Widget]
+    
+    SpeechController["SpeechController<br/>(StateNotifier)"]
+    DirectionsController["DirectionsController<br/>(StateNotifier)"]
+    MapController["MapController<br/>(StateNotifier)"]
+    CameraController["CameraController<br/>(StateNotifier)"]
+    BluetoothController["BluetoothController<br/>(StateNotifier)"]
+    
     SpeechService[SpeechToTextService]
-    GeminiService[GeminiService]
-    PlacesService[PlacesService]
-    CameraService[CameraGeminiService]
+    GeminiService[GeminiService<br/>LLM Intent Parsing]
+    DirectionsAPI[Google Directions API]
+    PlacesAPI[Google Places API]
+    CameraGemini[CameraGeminiService<br/>Multimodal Analysis]
     TTS[TtsService]
     Bluetooth[BluetoothService]
-    MapAPI[Google Maps\nDirections]
-    Location[Geolocator / Permissions]
+    Location[Geolocator]
+    
+    User -->|Tap buttons| Home
+    User -->|Navigate| MainNav
+    MainNav -->|Tab| NavPage
+    NavPage -->|Listen| SpeechUI
+    
+    SpeechUI -->|Speak command| SpeechService
+    SpeechService -->|Transcribed text| SpeechController
+    SpeechController -->|Parse intent| GeminiService
+    GeminiService -->|{intent, destination}| SpeechController
+    
+    SpeechController -->|navigate_to()| DirectionsController
+    SpeechController -->|Speak response| TTS
+    
+    DirectionsController -->|Get current location| Location
+    DirectionsController -->|Geocode destination| PlacesAPI
+    DirectionsController -->|Route polyline| DirectionsAPI
+    DirectionsController -->|updateRoute()| MapController
+    
+    MapController -->|copyWith()| MapUI
+    MapUI -->|ref.watch| NavPage
+    
+    DirectionsController -->|Speak directions| TTS
+    DirectionsController -->|Start camera| CameraController
+    
+    CameraController -->|Frame + prompt| CameraGemini
+    CameraGemini -->|Obstacle detection| CameraController
+    CameraController -->|Speak guidance| TTS
+    CameraController -->|sendMessage()| BluetoothController
+    
+    BluetoothController -->|Haptic feedback| Bluetooth
+```
 
-    User -->|Text input,\nlong press,\nbuttons| UI
-    UI -->|Intents| Controller
-    Controller -->|copyWith()| State
-    State -->|ref.watch| UI
+### Key Execution Paths
 
-    Controller -->|startListening()| SpeechService -->|recognized text| Controller
-    Controller -->|getMapsGroundedDirections()| GeminiService -->|instructions,\ndestination| Controller
-    Controller -->|autocomplete()/nearby| PlacesService --> Controller
-    Controller -->|captureAndAnalyze()| CameraService -->|AI response| Controller
-    Controller -->|speak()| TTS
-    Controller -->|sendMessage()| Bluetooth
-    Controller -->|Directions API| MapAPI -->|polyline| Controller
-    Controller -->|current position| Location
+**1. Voice Navigation (the main flow):**
+- User presses microphone → `SpeechToTextService.listen()` captures audio → transcribed text sent to `SpeechController`
+- `SpeechController` sends text to `GeminiService` (LLM API with function calling) to extract intent (e.g., "navigate") and destination
+- If intent is "navigate", `SpeechController.startListening()` callback calls `DirectionsController.navigateToLocation(destination)`
+- `DirectionsController` geocodes destination (Google Places), gets current user location (geolocator), calls Google Directions API for polyline
+- Creates map markers and polylines, passes to `MapController.updateRoute()` to trigger UI update
+- Animates map camera to show route, calls `TtsService.speak()` for turn-by-turn directions, starts camera obstacle detection
+
+**2. Text Search (alternative entry point):**
+- User types in search bar → `SearchController` queries `PlacesService` (Google Places autocomplete)
+- User taps result → `DirectionsController.navigateToDestination()` executes same routing flow as above
+
+**3. Obstacle Detection (continuous while navigating):**
+- `CameraController` continuously captures frames from camera
+- Sends frame + prompt to `CameraGeminiService` (Gemini multimodal) asking for left/right/stop guidance
+- Response is spoken via `TtsService` and sent to `BluetoothController` for haptic feedback
+- Loop continues until navigation ends or user stops camera
+
+**4. Where Am I? (location awareness):**
+- User asks or taps "Where Am I?" button
+- `DirectionsController.announceCurrentLocation()` calls geolocator for current position
+- `MapController._updateAddressFromCoordinates()` reverses geocode to get readable address
+- Spoken via `TtsService`
+
+---
+
+## � State Management & Controller Pattern
+
+PathPilot uses **Riverpod + StateNotifier** for predictable, testable state management. Each feature follows this layered pattern:
+
+```dart
+// 1. Immutable state class
+class DirectionsState {
+  final String? currentDestination;
+  final bool isNavigating;
+  final String? currentInstruction;
+  
+  DirectionsState copyWith({String? currentDestination, bool? isNavigating}) {
+    return DirectionsState(
+      currentDestination: currentDestination ?? this.currentDestination,
+      isNavigating: isNavigating ?? this.isNavigating,
+    );
+  }
+}
+
+// 2. StateNotifier controller (business logic)
+class DirectionsController extends StateNotifier<DirectionsState> {
+  DirectionsController(Ref ref) : super(DirectionsState.initial()) {
+    _ttsService = ref.read(ttsServiceProvider);
+    _geminiService = ref.read(geminiServiceProvider);
+  }
+  
+  Future<void> navigateToLocation(String destination) async {
+    state = state.copyWith(isNavigating: true);
+    // ... perform API calls and state updates
+    state = state.copyWith(currentInstruction: "Head north");
+  }
+}
+
+// 3. Riverpod provider (singleton factory)
+final directionsControllerProvider = 
+  StateNotifierProvider<DirectionsController, DirectionsState>((ref) {
+    return DirectionsController(ref);
+  });
+
+// 4. In UI, watch state and call methods
+ConsumerWidget build(BuildContext context, WidgetRef ref) {
+  final directions = ref.watch(directionsControllerProvider);
+  final controller = ref.read(directionsControllerProvider.notifier);
+  
+  return ElevatedButton(
+    onPressed: () => controller.navigateToLocation("Pharmacy"),
+    child: Text(directions.currentInstruction ?? "Navigate"),
+  );
+}
+```
+
+**Benefits:**
+- **Immutability**: Every state change is a fresh instance (copyWith pattern)
+- **Testability**: Controllers are pure Dart; no Flutter coupling
+- **Performance**: Riverpod rebuilds only widgets watching changed state
+- **Separation**: Controllers handle logic, state holds data, UI consumes both
+
+---
+
+## 🎙️ Speech Intent Parsing
+
+[SpeechController](lib/features/speech/speech_controller.dart) is the command nerve center:
+
+1. **Capture**: `SpeechToTextService.listen()` → transcribed text (e.g., "Navigate to pharmacy")
+2. **Parse**: Text sent to **Gemini LLM with function calling** → returns structured intent:
+   ```json
+   {
+     "intent": "navigate",
+     "destination": "pharmacy"
+   }
+   ```
+3. **Dispatch**: Based on intent, call appropriate controller:
+   - `navigate` → `DirectionsController.navigateToLocation(destination)`
+   - `show_camera` → `CameraController.startCapture()`
+   - `location` → `DirectionsController.announceCurrentLocation()`
+   - `stop_navigation` → `DirectionsController.stopNavigation()`
+
+**Why function calling?** More reliable than parsing JSON from raw LLM output. Gemini enforces schema, so we always get valid structured data.
+
+---
+
+## 📍 Navigation Flow (Complete Example)
+
+When user says **"Navigate to ABU Zaria Gate"**:
+
+```
+┌─ SpeechController.startListening()
+├─ SpeechToTextService transcribes → "Navigate to ABU Zaria Gate"
+├─ GeminiService.parseCommandLLM() → {intent: "navigate", destination: "ABU Zaria Gate"}
+├─ SpeechController detects "navigate" → calls DirectionsController.navigateToLocation("ABU Zaria Gate")
+├─ DirectionsController.navigateToDestination(LatLng, label):
+│  ├─ Get current position (Geolocator)
+│  ├─ Geocode destination (Google Places API)
+│  ├─ Call Google Directions API → get polyline + turn-by-turn steps
+│  ├─ Create markers (😊 current + 🚩 destination)
+│  ├─ MapController.updateRoute(markers, polylines) → UI updates via ref.watch()
+│  ├─ Animate camera to show full route
+│  ├─ TtsService.speak("Head north on Main Street. 1 of 5 turns.")
+│  └─ CameraController.startCapture() ← begin obstacle detection
+├─ CameraController loop (every 1-2s):
+│  ├─ Capture frame
+│  ├─ CameraGeminiService: send frame + prompt → Gemini multimodal
+│  ├─ Gemini response: "Clear ahead, small obstacle on your left at 5 meters"
+│  ├─ TtsService.speak("Small obstacle on your left")
+│  ├─ BluetoothController.sendMessage(haptic: "left") → haptic pulse to left arm
+│  └─ loop continues...
+├─ DirectionsController monitors location updates:
+│  ├─ When ~50m from next turn: speak next instruction
+│  ├─ When approaching destination: "Arriving at ABU Zaria Gate"
+│  └─ On arrival: stop camera, clear route from map
+└─ End
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🤖 Gemini Multimodal Integration
+
+PathPilot uses Gemini API in two ways:
+
+### Intent Parsing (Text-based)
+- **Model**: `gemini-2.0-flash`
+- **Input**: Transcribed speech (string)
+- **Output**: JSON with intent + destination
+- **Purpose**: Command understanding
+- **Called by**: SpeechController
+
+### Obstacle Detection (Multimodal)
+- **Model**: `gemini-2.0-flash-exp` (vision + text)
+- **Input**: Camera frame (image) + detailed prompt
+- **Output**: Guidance string ("Clear ahead", "Obstacle 2m on left", etc.)
+- **Purpose**: Real-time scene understanding for navigation safety
+- **Called by**: CameraController (every 1-2 seconds while navigating)
+- **Integration**: Response is spoken via TTS + sent to Bluetooth for haptic feedback
+
+**Sample obstacle detection prompt:**
+```
+You are helping a blind user navigate outdoors. Analyze this image and describe
+any immediate hazards or obstacles. Focus on three directions: left, center, right.
+Be concise and actionable. Examples:
+- "Clear ahead, watch out for step up on your right"
+- "Obstacle on your left 2 meters, clear ahead"
+- "Safe, no obstacles detected"
+```
+
+---
+
+## 🗺️ Map & Route Rendering
+
+**MapController** ([lib/features/map/map_controller.dart](lib/features/map/map_controller.dart)):
+- Manages **markers** (current location 🟡, destination 📍)
+- Manages **polylines** (route path from Google Directions API)
+- Handles **camera animations** (pan, zoom, recenter)
+- Performs **reverse geocoding** (lat/lng → readable address for "Where Am I?")
+
+**DirectionsController** ([lib/features/directions/directions_controller.dart](lib/features/directions/directions_controller.dart)):
+- Calls Google Directions API for polyline + turn-by-turn steps
+- Tracks current navigation segment + next instruction
+- Computes distance to next turn + ETA
+- Coordinates with MapController to render route
+
+**UI is lightweight:**
+```dart
+// In NavigationPage
+final mapState = ref.watch(mapControllerProvider);
+GoogleMap(
+  markers: mapState.markers,       // 🟡 current + 📍 destination
+  polylines: mapState.polylines,   // Route path
+  // ...
+)
+```
+Riverpod automatically rebuilds GoogleMap only when markers/polylines change.
+
+---
+
+## 🎬 Camera & Real-Time Obstacle Detection
+
+**CameraController** ([lib/features/camera/camera_controller.dart](lib/features/camera/camera_controller.dart)):
+1. Requests camera permission (permission_handler)
+2. Opens native camera (camera package)
+3. Captures frames in loop (every 1-2 seconds)
+4. Sends each frame to **CameraGeminiService** with obstacle prompt
+5. Parses Gemini response (obstacle direction, confidence)
+6. Speaks guidance via TTS
+7. Sends haptic cue via Bluetooth (left/right/stop)
+8. Continues until user stops or navigation ends
+
+**Why continuous capture?** Static scene description from one frame isn't enough. Visually impaired users need real-time feedback as they move and obstacles appear/disappear.
+
+---
+
+## �🚀 Getting Started
 
 ### Prerequisites
 
@@ -126,16 +408,32 @@ flutter run
 
 ## 📱 Usage Cheatsheet
 
-- **Voice navigation** – long-press anywhere, speak commands such as:
-  - “Navigate to ABU Zaria Gate”
-  - “Where am I?”
-  - “Start obstacle detection”
-- **Text search** – type in the search bar for live predictions; tap a result or
-  use the “Navigate” button to draw a route.
-- **Map controls** – use the explore button to re-center; markers show current
-  location and target.
-- **Camera panel** – tap the mini FAB to start/stop obstacle detection. Voice +
-  Bluetooth cues indicate left/right guidance.
+### Home Page (Landing Screen)
+- **Microphone Button** (large blue circle) – Tap to start voice input; speak commands
+- **Start Navigation** – Switch to map page
+- **Where Am I?** – Announces current location (street address)
+- **Object Detection** – Manually start camera obstacle detection
+
+### Map Page (Navigation Hub)
+- **Map** – Shows live location (blue marker), destination (red marker), and routed path (polyline)
+- **Navigation Controls** – Recenter map, zoom in/out
+- **Message Box** – Displays current instruction, status messages, errors
+- **Floating Action Button** – Start/stop camera for real-time obstacle detection
+- **Status Bar** – Shows Bluetooth connection status, current location, GPS accuracy
+
+### Voice Commands
+- *"Navigate to [destination]"* – Start turn-by-turn navigation
+- *"Where am I?"* – Announce current location address
+- *"Show camera"* – Start obstacle detection
+- *"Hide camera"* – Stop obstacle detection
+- *"Help" / "User guide"* – Play onboarding instructions
+- *"Stop navigation"* – End current navigation
+
+### Interaction Patterns
+- **Voice-first**: Designed for hands-free use; tap mic button
+- **Audio feedback**: Every action is announced via TTS
+- **Haptic feedback**: Bluetooth hardware sends left/right/stop pulses during navigation
+- **Visual fallback**: Map and text display for sighted users or reference
 
 ---
 

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../features/directions/directions_controller.dart';
-import 'navigation.dart'; // <-- your navigation screen file
+// import 'navigation.dart'; // <-- your navigation screen file
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pathpilot/widgets/main_nav.dart';
-import '../features/directions/directions_controller.dart';
+// import '../features/directions/directions_controller.dart';
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
   final Color primaryColor = const Color(0xFF1566EB);
